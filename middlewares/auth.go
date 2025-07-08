@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"gin-blog-api/utils"
 )
 
 func JWTAuthMiddleware() gin.HandlerFunc {
@@ -20,9 +21,15 @@ func JWTAuthMiddleware() gin.HandlerFunc {
 
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 		secret := os.Getenv("JWT_SECRET")
+		if secret == "" {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Sunucu yapılandırması hatası"})
+			c.Abort()
+			return
+		}
 
+		// JWT token doğrulaması
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			// HMAC doğrulama metodu kullanılıyor mu kontrolü
+			// HMAC metodu kullanıldığını doğrula
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, jwt.ErrTokenSignatureInvalid
 			}
@@ -35,16 +42,31 @@ func JWTAuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// claim'den userID'yi al
-		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-			userID := claims["sub"]
-			c.Set("userID", userID) // sonraki handler'lara aktar
-		} else {
+		// Redis session kontrolü
+		_, err = utils.GetSession(tokenString)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Session bulunamadı veya süresi dolmuş"})
+			c.Abort()
+			return
+		}
+
+		// Token içindeki claim'lerden userID al
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok || !token.Valid {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token çözümlenemedi"})
 			c.Abort()
 			return
 		}
 
+		userID, ok := claims["sub"].(string)
+		if !ok || userID == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token içinde kullanıcı bilgisi yok"})
+			c.Abort()
+			return
+		}
+
+		// Context'e userID'yi set et (string olarak, istersen uint dönüştür)
+		c.Set("userID", userID)
 		c.Next()
 	}
 }

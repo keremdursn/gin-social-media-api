@@ -3,6 +3,7 @@ package routes
 import (
 	"gin-blog-api/controllers"
 	"gin-blog-api/middlewares"
+	
 
 	"github.com/gin-gonic/gin"
 )
@@ -48,5 +49,20 @@ func User(r *gin.Engine) {
 		protected.GET("/notifications", controllers.GetNotifications)
 		protected.PUT("/notifications/:id/read", controllers.MarkNotificationAsRead)
 
+	}
+
+}
+
+// func WebSocketRoutes(r *gin.Engine) {
+// 	r.GET("/ws/notifications", ws.NotificationSocket)
+// }
+
+
+func AuthRoutes(router *gin.Engine) {
+	auth := router.Group("/auth")
+	{
+		auth.GET("/google/login", controllers.GoogleLogin)
+		auth.GET("/google/callback", controllers.GoogleCallback)
+		// Diğer auth route'lar...
 	}
 }

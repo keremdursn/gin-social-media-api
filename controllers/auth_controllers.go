@@ -5,6 +5,7 @@ import (
 	"gin-blog-api/models"
 	"gin-blog-api/utils"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
@@ -70,7 +71,28 @@ func Login(c *gin.Context) {
 		return
 	}
 
+	err = utils.SaveSession(token, user.ID, time.Hour*72)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Session kaydedilemedi"})
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{"token": token})
 }
 
 
+func Logout(c *gin.Context) {
+	token := c.GetHeader("Authorization")
+	if token == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Token gerekli"})
+		return
+	}
+
+	err := utils.DeleteSession(token)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Session silinemedi"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Başarıyla çıkış yapıldı"})
+}
